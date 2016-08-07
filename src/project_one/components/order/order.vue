@@ -20,7 +20,7 @@
 <!--   <a v-link="{ path: '/user', exact: true }">go User list</a>
   <a v-link="{ name: 'user', params: { userId: 123 }}">go User userId</a>
   <a v-link="{ name: 'details', params: { details: 1234 }}">go User details</a> -->
-</template>
+</template> 
 
 <script>
 
