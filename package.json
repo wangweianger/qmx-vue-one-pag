@@ -4,7 +4,8 @@
   "description": "demo",
   "main": "index.js",
   "scripts": {
-    "dev": "webpack-dev-server --watch --port 2000 --inline --hot --colors --config build/webpack.dev.config.js",
+    "dev": "webpack-dev-server -d --watch --port 2000 --inline --hot --colors --config build/webpack.dev.config.js",
+    "test": "webpack -d --progress --hide-modules --colors --config build/webpack.test.config.js",
     "build": "webpack -p --progress --hide-modules --colors --config build/webpack.product.config.js"
   },
   "author": "wanwei",
@@ -17,26 +18,29 @@
     "babel-preset-stage-0": "^6.5.0",
     "babel-preset-stage-2": "^6.11.0",
     "babel-runtime": "^6.11.6",
+    "bootstrap": "^3.3.7",
     "css-loader": "^0.23.0",
-    "file-loader": "^0.8.5",
+    "extract-text-webpack-plugin": "^1.0.1",
+    "file-loader": "^0.9.0",
+    "glob": "^7.0.5",
     "html-webpack-plugin": "^2.22.0",
     "imports-loader": "^0.6.5",
-    "glob": "^7.0.5",
     "jquery": "^3.1.0",
     "node-sass": "^3.8.0",
     "sass-loader": "^4.0.0",
+    "string-replace-webpack-plugin": "^0.0.3",
     "style-loader": "^0.13.0",
     "template-html-loader": "0.0.3",
     "url-loader": "^0.5.7",
+    "vue": "^1.0.26",
     "vue-hot-reload-api": "^1.2.1",
     "vue-html-loader": "^1.0.0",
     "vue-loader": "^7.1.4",
     "vue-router": "^0.7.13",
+    "vue-strap": "^1.0.11",
+    "vue-validator": "^2.1.5",
+    "vuex": "^1.0.0-rc.2",
     "webpack": "^1.12.9",
     "webpack-dev-server": "^1.14.0"
-  },
-  "dependencies": {
-    "vue": "^1.0.10",
-    "vuex": "^0.8.0"
   }
 }

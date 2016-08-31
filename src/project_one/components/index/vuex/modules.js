@@ -1,6 +1,9 @@
 
+import popup from 'popup'
+
 const INIT_STORE = 'INIT_STORE'
 const ALERT_SOMETHING = 'ALERT_SOMETHING'
+
 
 
 // 需要维护的状态
@@ -18,8 +21,7 @@ const mutations = {
     },
     //弹出一些东西
     [ALERT_SOMETHING](state,mun) {
-      console.log(mun)
-      state.number="我 变 了 额"
+      popup.alert({type:'error','title':"这里面是我的第一个弹出层",maskHide:false});
     },
 
 };

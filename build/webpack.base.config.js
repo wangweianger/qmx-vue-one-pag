@@ -4,6 +4,8 @@ var path = require("path");
 var fs = require("fs");
 var glob = require('glob');
 var htmlWebpackPlugin = require('html-webpack-plugin');
+var ExtractTextPlugin = require("extract-text-webpack-plugin");
+
 //提取公共文件
 var CommonsChunkPlugin = webpack.optimize.CommonsChunkPlugin;
 //项目名字
@@ -14,7 +16,7 @@ var config = {
             main:path.resolve(__dirname, '../src' + projectName + 'main.js'),
         },
         output: {
-            path: './dist',
+            path: path.resolve(__dirname, '../dist'),
             publicPath: '/',
             filename: '[name].js',
             chunkFilename: "[name].js"
@@ -24,19 +26,25 @@ var config = {
                 test: /\.vue$/,
                 loader: 'vue',
                 exclude: "/node_modules/"
-            }, {
+            }, 
+            {
                 test: /\.js$/,
                 loader: 'babel',
                 exclude: /node_modules|vue\/dist/
-            }, {
-                test: /\.css$/,
-                loader: 'style-loader!css-loader'
+            }, 
+            {
+                test:/\.css$/, 
+                loader: ExtractTextPlugin.extract("style-loader", "css-loader")
             },
             //图片文件使用 url-loader 来处理，小于8kb的直接转为base64
             {
                 test: /\.(png|jpg|gif)$/,
                 loader: 'url-loader?limit=8192&name=img/[name].[ext]?[hash]'
             },
+            {
+            　　test: /\.(woff|woff2|eot|ttf|svg)(\?.*$|$)/,
+            　　loader: 'url-loader?importLoaders=1&limit=1000&name=fonts/[name].[ext]'
+        　　},
             {
                 test: /\.scss$/, 
                 loader: "style!css!sass"
@@ -54,13 +62,18 @@ var config = {
             components: path.resolve(__dirname, '../src' + projectName + 'components'),
             commonvue: path.resolve(__dirname, '../src' + projectName + 'commonvue'),
             common: path.resolve(__dirname, '../src' + projectName + 'assets/common'),
+            popup: path.resolve(__dirname, '../src' + projectName + 'assets/common/lib/popup/popup.js'),
+            page: path.resolve(__dirname, '../src' + projectName + 'assets/common/lib/page/page.js'),
         },
     },
     //插件
     plugins: [
+        //提取css
+        new ExtractTextPlugin("styles.css"),
         //全局注入变量
         new webpack.ProvidePlugin({
             $: "jquery",
+            jQuery: "jquery",
         }),
         new CommonsChunkPlugin({
             name: 'vendors', // 将公共模块提取，生成名为`vendors`的chunk
@@ -91,12 +104,14 @@ htmls.forEach(function(pathname) {
     var conf = {
         filename: pageName + '.html', //生成的html存放路径，相对于path
         template: path.resolve(__dirname, '../src' + projectName+ '/assets/' + pathname + '.html'),
-        inject: false, //js插入的位置，true/'head'/'body'/false
+        inject: true, //js插入的位置，true/'head'/'body'/false
+        hash: true,
+        cache: true,
     };
     if (pageName in config.entry) {
-        conf.inject = 'body';
-        conf.hash = true;
-        conf.cache = true,
+        // conf.inject = 'body';
+        // conf.hash = true;
+        // conf.cache = true,
         conf.chunks = ['vendors'] 
     }
     console.log(conf)

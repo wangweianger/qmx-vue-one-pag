@@ -1,5 +1,6 @@
 
 import config from './config'
+import popup from 'popup'
 
 //common 公共对象函数
 class common{
@@ -19,13 +20,24 @@ class common{
 		this.isIE11=this.UA.indexOf('Trident')>-1;
 	};
 
-	//封装的ajax函数
+	/*封装的ajax函数
+	*type           	类型  get|post
+	*url            	api地址
+	*data           	请求的json数据
+	*nohideloading  	ajax执行完成之后是否隐藏遮罩
+	*complete       	ajax完成后执行（失败成功后都会执行）
+	*success        	成功之后执行
+	*error          	失败之后执行
+	*goingError     	是否执行自定义error回调
+	*timeout        	ajax超时时间
+	*isGoingLogin   	是否跳转到登录界面
+	*/
 	ajax(json){
 		var This=this;
 		var noError=true;
 		This.showLoading();
 		$.ajax({
-			type: json.type||"get",
+			type: json.type||"post",
 			url: json.url,
 			data: json.data||"",
 			datatype:"json",
@@ -55,7 +67,7 @@ class common{
 			This.hideLoading();
 			// 请求超时
 			noError=false;
-			Popup.alert({type:'msg',title:'您的网络太慢了哦,请刷新重试!'});
+			popup.alert({type:'msg',title:'您的网络太慢了哦,请刷新重试!'});
 		}, json.timeout||config.ajaxtimeout);
 	};
 
@@ -76,35 +88,53 @@ class common{
             contentType: false,  
             processData: false, 
 			success:function(data){
-				This.hideLoading();
+				if(!json.nohideloading){ This.hideLoading();};
 				clearTimeout(time);
 				This.error(data,json);
 			},
 			error:function(XMLHttpRequest){
-				This.hideLoading();
+				if(!json.nohideloading){ This.hideLoading();};
 				json.error();
 				This.clearTimeout(time);
 				if(noError){
 					_error(XMLHttpRequest,json);
 				};	
-			}
+			},
+			complete:function(XMLHttpRequest){
+				if(!json.nohideloading){ This.hideLoading();};
+				clearTimeout(time);
+				if(json.complete){json.complete(XMLHttpRequest);}
+			},
 		});
 		var time=setTimeout(function(){
 			This.hideLoading();
 			// 请求超时
 			noError=false;
-			Popup.alert({type:'msg',title:'您的网络太慢了哦,请刷新重试!'});
+			popup.alert({type:'msg',title:'您的网络太慢了哦,请刷新重试!'});
 		}, json.timeout||config.ajaxtimeout);
 	}
 
-	/*FormData 上传文件函数*/
+	/*FormData 上传文件函数
+	filename : string  input name 属性
+	onlyOne : boolean   是否只上传一个文件
+	data : Object      ajax上次的data数据
+	url ：string      api地址
+	nohideloading : boolean  	ajax执行完成之后是否隐藏遮罩
+	timeout : number        	ajax超时时间
+	goingError : boolean     	是否执行自定义error回调
+	isGoingLogin : boolean   	是否跳转到登录界面
+	success : function   成功之后的回调函数
+	complete : function       	ajax完成后执行（失败成功后都会执行）
+	error : function          	失败之后执行
+	*/
 	cerateFileFormData(json){
 		var This=this;
 		var filename=json.filename?json.filename:'filename'
-		var html='<div id="createFileHtml" class="hidden">\
-					<form enctype="multipart/form-data" id="uploadForm">\
-						<input type="file" name="'+filename+'" id="expInputFile"></div>\
-					</form>';
+		var html='<div id="createFileHtml" class="hidden">';
+				html+='<form enctype="multipart/form-data" id="uploadForm">';
+					html+='<input type="file" name="'+filename+'" id="expInputFile" ';
+						if(!json.onlyOne){ html+=' multiple="multiple"' }
+					html+='></div></form>';
 		if(!$('#createFileHtml').length){
 			$('body').append(html);
 		}
@@ -122,10 +152,14 @@ class common{
 		    	data:formData,
 		    	success:function(data){
 		    		$('#createFileHtml').remove();
-		    		json.callback(data);
+		    		json.success&&json.success(data);
 		    	},
-		    	error:function(){
+		    	error:function(data){
 		    		$('#createFileHtml').remove();
+		    		json.error&&json.error(data);
+		    	},
+		    	complete:function(data){
+		    		json.complete&&json.complete(data);
 		    	}
 		    });
 		});
@@ -134,27 +168,29 @@ class common{
 	//error 处理函数
 	error(data,json){
 		//判断code 并处理
-		var dataCode=parseInt(data.errCode);
-		if(!json.pageSet && dataCode==-10000){
+		var dataCode=parseInt(data.code);
+		if(!json.isGoingLogin && dataCode==1004){
 			//判断app或者web
-			if(window.location.href.indexOf(config.loginUrl) == -1){ 
-				sessionStorage.setItem("weixin-url", window.location.href); //记录没有登陆前的访问页面
-				location.href=config.loginUrl;
-			}else{
-				Popup.alert({type:'msg',title:'用户未登陆,请登录!'});
-			}
+			// if(window.location.href.indexOf(config.loginUrl) == -1){ 
+			// 	sessionStorage.setItem("weixin-url", window.location.href); //记录没有登陆前的访问页面
+			// 	location.href=config.loginUrl;
+			// }else{
+			// 	popup.alert({type:'msg',title:'用户未登陆,请登录!'});
+			// }
+			popup.alert({type:'msg',title:'用户未登陆,请登录!'})
 		}else{
 			switch(dataCode){
-				case 0:
+				case 1000:
 					json.success(data);
 					break;
 				default:
-					if(json.code){
+					if(json.goingError){
+						//走error回调
 						json.error(data);
 					}else{
 						//直接弹出错误信息
-						Popup.alert({type:'msg',title:data.errMsg});
-					};			
+						popup.alert({type:'msg',title:data.desc});
+					};	
 			}
 		};
 	}
@@ -171,20 +207,20 @@ class common{
 							sessionStorage.setItem("weixin-url", window.location.href); //记录没有登陆前的访问页面
 							window.location.href=config.loginUrl;
 						}else{
-							Popup.alert({type:'msg',title:"你需要登录哦"});
+							popup.alert({type:'msg',title:"你需要登录哦"});
 						};
 						break;
 					case 400:
-						Popup.alert({type:'msg',title:"您的请求不合法呢"});
+						popup.alert({type:'msg',title:"您的请求不合法呢"});
 						break;	
 					case 404:
-						Popup.alert({type:'msg',title:"访问的地址可能不存在哦"});
+						popup.alert({type:'msg',title:"访问的地址可能不存在哦"});
 						break;		
 					case 500:case 502:
-						Popup.alert({type:'msg',title:"服务器内部错误"});
+						popup.alert({type:'msg',title:"服务器内部错误"});
 						break;		
 					// default:
-					// 	Popup.alert({type:'msg',title:"未知错误。程序员欧巴正在赶来修改哦"});	
+					// 	popup.alert({type:'msg',title:"未知错误。程序员欧巴正在赶来修改哦"});	
 				}
 			}
 	}
@@ -250,7 +286,10 @@ class common{
 		return reg;
 	}
 
-	/*extent json函数*/
+	/*extent json函数
+	*json1  原始数据
+	*json2  新数据 
+	*/
 	extend (json1,json2){
 		var newJson=json1;
 		for(var j in json2){
@@ -258,6 +297,330 @@ class common{
 		}
 		return newJson;
 	}
+
+	/* 设置url参数
+	*name    设置的query名字
+	*value   值
+	*url     设置的url （location.href）
+	*isHashMode 是否是hash
+	*/
+	setQueryString(name,value,url,isHashMode){
+	    if(typeof name == 'undefined' || typeof value == 'undefined' || typeof url == 'undefined'){
+	        return url;
+	    }
+	    var reg = new RegExp("(^|&|\\?|#)"+name+"=([^&]*?)(&|#|$)"),
+	        tempHash=url.match(/#.*/)?url.match(/#.*/)[0]:"";
+	    
+	    url=url.replace(/#.*/,"");
+	    if(isHashMode===true){
+	        if(reg.test(tempHash)){
+	            tempHash=tempHash.replace(reg,function(m,r1,r2,r3){return r1+name+"="+encodeURIComponent(value)+r3});
+	        }else{
+	            var separator=tempHash.indexOf("#")===-1?"#":"&";
+	            tempHash=tempHash+separator+name+"="+encodeURIComponent(value)}
+	            tempHash=tempHash.replace(reg,function(m,r1,r2,r3){return r1+name+"="+encodeURIComponent(value)+r3})
+	    }else if(reg.test(url)){
+	        url=url.replace(reg,function(m,r1,r2,r3){return r1+name+"="+encodeURIComponent(value)+r3});
+	    }else{
+	        var separator=url.indexOf("?")===-1?"?":"&";
+	        url=url+separator+name+"="+encodeURIComponent(value)
+	    }
+	    return url+tempHash
+	};
+
+	/*检查输入的是否是数字*/
+	IsNum (e) {
+	    var k = window.event ? e.keyCode : e.which;
+	    if (((k >= 48) && (k <= 57)) || k == 8 || k == 0) {
+	    } else {
+	        if (window.event) {
+	            window.event.returnValue = false;
+	        }
+	        else {
+	            e.preventDefault(); //for firefox 
+	        }
+	    }
+	} 
+
+	/*获取 storage 缓存数据
+	* type  类型   local：localStorage   session：sessionStorage
+	* name  缓存数据name名
+	*/
+   	getStorage(type,name){
+   		var type=type||'local';
+   		if(type=='local'){
+   			var result = localStorage.getItem(name)? localStorage.getItem(name):"";
+   		}else if(type=='session'){
+   			var result = sessionStorage.getItem(name)? sessionStorage.getItem(name):"";
+   		}
+	    return result;
+ 	}
+
+ 	/*设置 storage 缓存数据
+ 	*type  类型   local：localStorage   session：sessionStorage
+ 	*name  缓存数据name名
+ 	*content  缓存的数据内容
+ 	*/
+	setStorage(type,name,content){
+		var type=type||'local';
+		var data=content;
+		if(typeof(data)=='object'){ data=JSON.stringify(content) };
+		if(type=='local'){
+			sessionStorage.setItem(name,data);
+		}else if(type=='session'){
+			localStorage.setItem(name,data);
+		}
+	}
+
+	//showLoading
+	showLoading(){
+		$('#loading').stop().fadeIn(200);
+	}
+
+	//hideLoading
+	hideLoading(){
+		$('#loading').stop().fadeOut(200);
+	}
+
+	/*生成随机字符串*/
+	randomString(len) {
+	　　len = len || 32;
+	　　var $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678';    /****默认去掉了容易混淆的字符oOLl,9gq,Vv,Uu,I1****/
+	　　var maxPos = $chars.length;
+	　　var pwd = '';
+	　　for (i = 0; i < len; i++) {
+	　　　　pwd += $chars.charAt(Math.floor(Math.random() * maxPos));
+	　　}
+	　　return pwd;
+	}
+
+	//秒数换算成时间函数 得到00:00:00 格式
+	formatSeconds(value) {
+	    var second = parseInt(value);// 秒
+	    var minute = 0;// 分
+	    var hour = 0;// 小时
+	    if(second > 60) {
+	            minute = parseInt(second/60);
+	            second = parseInt(second%60);
+	        if(minute > 60) {
+	            hour = parseInt(minute/60);
+	            minute = parseInt(minute%60);
+	        }
+	    }
+	    var result = this.getZero(minute)+':'+this.getZero(parseInt(second));
+	    if(minute > 0) {
+	        result =this.getZero(parseInt(minute))+":"+this.getZero(parseInt(second));
+	    }
+	    if(hour > 0) {
+	        result =this.getZero(parseInt(hour))+':'+this.getZero(parseInt(minute))+":"+this.getZero(parseInt(second));
+	    }
+	    return result;
+	}
+
+	/*判断时间前面是否加0*/
+	getZero (num){
+	    if(num<10){
+	            return '0'+num;
+	    }else{
+	            return num;
+	    }
+	}
+
+	/* 短信定时器
+      nowTime vue.js 初始数据  当前时间
+      getMsgText vue.js 初始数据  当前的提示文字
+    */
+    getMsgTime(obj,msgText, fn) {
+        var This = obj;
+        This.nowTime = config.msgTime;
+        var timer = setInterval(function() {
+            This.nowTime--;
+            This[msgText] = This.nowTime + ' S后重发';
+            //时间走完时执行
+            if (This.nowTime <= 0) {
+                clearInterval(timer);
+                This[msgText] = "重新获取";
+                fn();
+            }
+        }, 1000);
+    } //end
+
+    /*根据某个val值获得当前数组的索引
+	arr  数组集合（一维json数组）
+	key  json的key值
+	val  需要匹配的值
+    */
+	gttArrItemIndex(arr,key,val){
+		var index=-1;
+		for(var i=0,len=arr.length;i<len;i++){
+			if(arr[i][key]==val){
+				index=i;
+			}
+		}
+		return index;
+	}
+
+	/*检测某值在数组中是否存在
+	arr   数组集合（一维json数组）
+	value 需要匹配的值
+	*/
+	isInArray(arr,value){
+		if(!value){return false;}
+		var result=false;
+		for(var i=0,len=arr.length;i<len;i++){
+			if(value.toString().indexOf(arr[i]) != -1){
+				result=true;
+			};
+		};
+		return result;
+	}
+
+	/*检测某值在数组中是否存在 并返回存在的索引值
+	arr         数组集合（一维json数组） 
+	value       json的key值 
+	checkKey    检测的key值
+	*/
+	isInArrayAndIndex(arr,value,checkKey){
+		var result={isin:false,index:0};
+		for(var i=0,len=arr.length;i<len;i++){
+			if(value==arr[i][checkKey]){
+				result.isin=true;
+				result.index=i;
+			};
+		};
+		return result;
+	}
+
+	/*json数组中获得某个kye的集合
+	datas   array   数组集合（一维json数组） 
+	keys    array     key值集合  例如['id','name','age']
+	*/
+	getValListForJson(json){
+		var newArr=[];
+		for(var i=0;i<json.datas.length;i++){
+			var newjson={};
+			for(var k=0;k<json.keys.length;k++){
+				newjson[json.keys[k]]=json.datas[i][json.keys[k]]
+			}
+			newArr.push(newjson);
+		}
+		return newArr;
+	}
+
+	/*获得数组中某个key值的集合
+	arr  数组集合（一维json数组）
+	key  string 
+	*/
+	getArrsItems(arr,key){
+	    var str="";
+	    for(var i=0;i<arr.length;i++){
+	        str+=arr[i][key]+',';
+	    }
+	    return str.slice(0,-1);
+	}
+
+	/*获得某value值相加的和     （算总价时需要用到）
+	arr  数组集合（一维json数组）
+	key  string
+	*/
+	getTotalDatas(arr,key){
+	    var total=0;
+	    for(var i=0;i<arr.length;i++){
+	        total=total+arr[i][key];
+	    }
+	    return total;
+	}
+
+	/*获得商品数量少于number的索引集合 并返回index
+	arr      数组集合（一维json数组）
+	key      string
+	number   int
+	*/
+	getNumberZeroProducts(arr,key,number){
+		var newarr=[];
+		for(var i=0,len=arr.length;i<len;i++){
+			if(arr[i][key]<=number){
+				newarr.push(i);
+			};
+		}
+		return newarr
+	};
+
+	/*获得某些key值的集合
+	datas  array  数组集合（一维json数组）
+	keys   array  （['id','name','age']） 
+	*/
+	getNumListDouHao(json){
+		var str="";
+		for(var i=0;i<json.datas.length;i++){
+			if(i==json.datas.length-1){
+				for(var k=0;k<json.keys.length;k++){
+					if(k==json.keys.length-1){
+						str+=json.datas[i][json.keys[k]];
+					}else{
+						str+=json.datas[i][json.keys[k]]+',';
+					}
+				}
+			}else{
+				for(var k=0;k<json.keys.length;k++){
+					if(k==json.keys.length-1){
+						str+=json.datas[i][json.keys[k]];
+					}else{
+						str+=json.datas[i][json.keys[k]]+',';	
+					}
+				}
+				str+='\n';
+			}
+		}
+		return str;
+	}
+
+	//新建iframe 并赋src   文件下载时用得到
+    interIosForIframe(src) {
+        if ($('#clickOnIos').length) {
+            $('#clickOnIos').attr('src', src)
+        } else {
+            $('body').append('<iframe id="clickOnIos" src=' + src + ' class="hide"></iframe>');
+        }
+    };
+
+
+    //登录成功之后设置cookie
+	setCookie(cookiename,value){
+		var dt= new Date();
+  		dt.setTime(dt.getTime() + (3*24*60*60*1000));
+        // $.cookie(cookiename,value,{expires:dt, path:'/' ,domain: 'morning-star.cn'});
+        $.cookie(cookiename,value,{expires:dt, path:'/'});
+	}
+
+	//退出登录后移除cookie
+	removeCookie(cookiename){
+		// $.cookie(cookiename,"",{expires:-1, path:'/' ,domain: 'morning-star.cn'});
+		$.cookie(cookiename,"",{expires:-1, path:'/' });
+		sessionStorage.setItem('usermsgs',"");
+	};
+
+	//订单倒计时定时器
+	/*	invalidtime    //过期时间
+	**	systemtime  //系统当前时间
+	**	obj  //操作的对象
+	**	callback   //回调函数
+	*/
+	timeCountDown(json){
+		var This=this;
+        var timespe = (json.invalidtime - json.systemtime) / 1000; //时间差
+        if (timespe <= 0) { json.obj.text('00:00:00'); };
+        var timer = setInterval(function() {
+        	$(json.obj).text(This.formatSeconds(timespe));
+            timespe--;
+            if (timespe <= 0) {
+                clearInterval(timer);
+                json.obj.text('00:00:00');
+                //调起事件
+                json.callback&&json.callback();
+            }
+        }, 1000);
+	};
 
 }
 
